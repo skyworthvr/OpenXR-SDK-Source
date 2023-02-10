@@ -513,6 +513,25 @@ struct OpenXrProgram : IOpenXrProgram {
             suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
             CHECK_XRCMD(xrSuggestInteractionProfileBindings(m_instance, &suggestedBindings));
         }
+
+        {
+            XrPath microsoftMixedRealityInteractionProfilePath;
+            CHECK_XRCMD(xrStringToPath(m_instance, "/interaction_profiles/skyworth/touch_controller",
+                                       &microsoftMixedRealityInteractionProfilePath));
+            std::vector<XrActionSuggestedBinding> bindings{{{m_input.grabAction, squeezeValuePath[Side::LEFT]},
+                                                            {m_input.grabAction, squeezeValuePath[Side::RIGHT]},
+                                                            {m_input.poseAction, posePath[Side::LEFT]},
+                                                            {m_input.poseAction, posePath[Side::RIGHT]},
+                                                            {m_input.quitAction, menuClickPath[Side::LEFT]},
+                                                            {m_input.quitAction, menuClickPath[Side::RIGHT]},
+                                                            {m_input.vibrateAction, hapticPath[Side::LEFT]},
+                                                            {m_input.vibrateAction, hapticPath[Side::RIGHT]}}};
+            XrInteractionProfileSuggestedBinding suggestedBindings{XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
+            suggestedBindings.interactionProfile = microsoftMixedRealityInteractionProfilePath;
+            suggestedBindings.suggestedBindings = bindings.data();
+            suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
+            CHECK_XRCMD(xrSuggestInteractionProfileBindings(m_instance, &suggestedBindings));
+        }
         XrActionSpaceCreateInfo actionSpaceInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
         actionSpaceInfo.action = m_input.poseAction;
         actionSpaceInfo.poseInActionSpace.orientation.w = 1.f;
