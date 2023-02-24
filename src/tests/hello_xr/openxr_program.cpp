@@ -331,6 +331,7 @@ struct OpenXrProgram : IOpenXrProgram {
         XrAction poseAction{XR_NULL_HANDLE};
         XrAction vibrateAction{XR_NULL_HANDLE};
         XrAction quitAction{XR_NULL_HANDLE};
+        XrAction primaryButtonAction{XR_NULL_HANDLE};
         std::array<XrPath, Side::COUNT> handSubactionPath;
         std::array<XrSpace, Side::COUNT> handSpace;
         std::array<float, Side::COUNT> handScale = {{1.0f, 1.0f}};
@@ -387,6 +388,13 @@ struct OpenXrProgram : IOpenXrProgram {
             actionInfo.countSubactionPaths = 0;
             actionInfo.subactionPaths = nullptr;
             CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.quitAction));
+
+            actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+            strcpy_s(actionInfo.actionName, "primarybutton");
+            strcpy_s(actionInfo.localizedActionName, "Primary Button");
+            actionInfo.countSubactionPaths = uint32_t(m_input.handSubactionPath.size());
+            actionInfo.subactionPaths = m_input.handSubactionPath.data();
+            CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.primaryButtonAction));
         }
 
         std::array<XrPath, Side::COUNT> selectPath;
@@ -398,6 +406,9 @@ struct OpenXrProgram : IOpenXrProgram {
         std::array<XrPath, Side::COUNT> menuClickPath;
         std::array<XrPath, Side::COUNT> bClickPath;
         std::array<XrPath, Side::COUNT> triggerValuePath;
+        std::array<XrPath, Side::COUNT> primaryButtonPath;
+        CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/x/click", &primaryButtonPath[Side::LEFT]));
+        CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/a/click", &primaryButtonPath[Side::RIGHT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/select/click", &selectPath[Side::LEFT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/select/click", &selectPath[Side::RIGHT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/squeeze/value", &squeezeValuePath[Side::LEFT]));
@@ -520,6 +531,8 @@ struct OpenXrProgram : IOpenXrProgram {
                                        &microsoftMixedRealityInteractionProfilePath));
             std::vector<XrActionSuggestedBinding> bindings{{{m_input.grabAction, squeezeValuePath[Side::LEFT]},
                                                             {m_input.grabAction, squeezeValuePath[Side::RIGHT]},
+                                                            {m_input.primaryButtonAction, primaryButtonPath[Side::LEFT]},
+                                                            {m_input.primaryButtonAction, primaryButtonPath[Side::RIGHT]},
                                                             {m_input.poseAction, posePath[Side::LEFT]},
                                                             {m_input.poseAction, posePath[Side::RIGHT]},
                                                             {m_input.quitAction, menuClickPath[Side::LEFT]},
@@ -867,6 +880,11 @@ struct OpenXrProgram : IOpenXrProgram {
             XrActionStatePose poseState{XR_TYPE_ACTION_STATE_POSE};
             CHECK_XRCMD(xrGetActionStatePose(m_session, &getInfo, &poseState));
             m_input.handActive[hand] = poseState.isActive;
+
+            getInfo.action = m_input.primaryButtonAction;
+            XrActionStateBoolean primaryButtonValue{XR_TYPE_ACTION_STATE_BOOLEAN};
+            CHECK_XRCMD(xrGetActionStateBoolean(m_session, &getInfo, &primaryButtonValue));
+            Log::Write(Log::Level::Info, Fmt("primaryButtonValue: changedSinceLastSync %d", primaryButtonValue.changedSinceLastSync));
         }
 
         // There were no subaction paths specified for the quit action, because we don't care which hand did it.
