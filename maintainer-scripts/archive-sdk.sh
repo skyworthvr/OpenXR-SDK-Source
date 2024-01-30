@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2019-2022, The Khronos Group Inc.
+# Copyright (c) 2019-2024, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -45,6 +45,18 @@ makeSubset "$TARNAME" $(getSDKFilenames)
 
     cd github
 
+    # Add the shared public .mailmap used in all GitHub projects derived from the internal openxr repo
+    add_to_tar "$TARNAME" .mailmap
+    if [ -f .mailmap ]; then
+        # It's in the github folder.
+        add_to_tar "$TARNAME" .mailmap
+    elif [ -f ../.mailmap ]; then
+        # It's in the root.
+        cd ..
+        add_to_tar "$TARNAME" .mailmap
+        cd github
+    fi
+
     if [ -f COPYING.adoc ] && ! [ -f ../COPYING.adoc ]; then
         # If we didn't get it before, maybe we got it now.
         add_to_tar "$TARNAME" COPYING.adoc
@@ -53,6 +65,8 @@ makeSubset "$TARNAME" $(getSDKFilenames)
     cd sdk
     # Add the SDK-specific README
     add_to_tar "$TARNAME" README.md
+    # Add the pull request template
+    add_to_tar "$TARNAME" .github/pull_request_template.md
 )
 
 # Read the list of headers we should generate, and generate them.
@@ -61,6 +75,8 @@ while read -r header; do
 done < include/generated_header_list.txt
 
 # These go just in SDK
+generate_src src xr_generated_dispatch_table_core.c  "$TARNAME"
+generate_src src xr_generated_dispatch_table_core.h  "$TARNAME"
 generate_src src xr_generated_dispatch_table.c  "$TARNAME"
 generate_src src xr_generated_dispatch_table.h  "$TARNAME"
 generate_src src/loader xr_generated_loader.cpp  "$TARNAME"

@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright 2013-2022 The Khronos Group Inc.
+# Copyright 2013-2024, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -932,6 +932,10 @@ class Registry:
                         self.commandextensionerrors.append(self.commandextensiontuple(command=commandName,
                                                                                       value=error,
                                                                                       extension=featurename))
+            elif extendElem.get('interaction_profile_path'):
+                # We will eventually use these `interaction_profile_path`s but for the
+                # moment we just need them to exist so we can run schema validation.
+                pass
             else:
                 self.gen.logMsg('warn', 'extend type:', extendType, 'IS NOT SUPPORTED')
 
@@ -1216,6 +1220,10 @@ class Registry:
                         extname = elem.get('extname')
                         version = elem.get('version')
                         if extname is not None:
+                            # if this enum is not defined in an extension that is being emitted
+                            # then it should not be included in the emitted header file
+                            if re.match(self.genOpts.emitExtensions, extname) is None:
+                                continue;
                             # 'supported' attribute was injected when the <enum> element was
                             # moved into the <enums> group in Registry.parseTree()
                             supported_list = elem.get('supported').split(",")

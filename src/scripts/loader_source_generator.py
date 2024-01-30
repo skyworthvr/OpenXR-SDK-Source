@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2017-2022, The Khronos Group Inc.
+# Copyright (c) 2017-2024, The Khronos Group Inc.
 # Copyright (c) 2017-2019 Valve Corporation
 # Copyright (c) 2017-2019 LunarG, Inc.
 #
@@ -16,12 +16,18 @@
 #               automatic_source_generator.py class to produce the
 #               generated source code for the loader.
 
+import dataclasses
+
 from automatic_source_generator import (AutomaticSourceOutputGenerator,
                                         undecorate)
 from generator import write
 
 # The following commands are manually implemented in the loader.
 MANUAL_LOADER_FUNCS = set((
+    'xrNegotiateLoaderRuntimeInterface',
+    'xrNegotiateLoaderApiLayerInterface',
+    'xrCreateApiLayerInstance',
+
     'xrGetInstanceProcAddr',
     'xrEnumerateApiLayerProperties',
     'xrEnumerateInstanceExtensionProperties',
@@ -81,8 +87,9 @@ class LoaderSourceOutputGenerator(AutomaticSourceOutputGenerator):
     #   self            the LoaderSourceOutputGenerator object
 
     def outputGeneratedHeaderWarning(self):
+        # REUSE-IgnoreStart
         generated_warning = ''
-        generated_warning += '// Copyright (c) 2017-2022, The Khronos Group Inc.\n'
+        generated_warning += '// Copyright (c) 2017-2024, The Khronos Group Inc.\n'
         generated_warning += '// Copyright (c) 2017-2019 Valve Corporation\n'
         generated_warning += '// Copyright (c) 2017-2019 LunarG, Inc.\n'
         # Broken string is to avoid confusing the REUSE tool here.
@@ -90,6 +97,7 @@ class LoaderSourceOutputGenerator(AutomaticSourceOutputGenerator):
         generated_warning += '// *********** THIS FILE IS GENERATED - DO NOT EDIT ***********\n'
         generated_warning += '//     See loader_source_generator.py for modifications\n'
         generated_warning += '// ************************************************************\n'
+        # REUSE-IgnoreEnd
         write(generated_warning, file=self.outFile)
 
     # Call the base class to properly begin the file, and then add
@@ -107,8 +115,8 @@ class LoaderSourceOutputGenerator(AutomaticSourceOutputGenerator):
             preamble += '#include <mutex>\n\n'
             preamble += '#include "xr_dependencies.h"\n'
             preamble += '#include "openxr/openxr.h"\n'
+            preamble += '#include "openxr/openxr_loader_negotiation.h"\n'
             preamble += '#include "openxr/openxr_platform.h"\n\n'
-            preamble += '#include "loader_interfaces.h"\n\n'
             preamble += '#include "loader_instance.hpp"\n\n'
             preamble += '#include "loader_platform.hpp"\n\n'
 
@@ -121,7 +129,7 @@ class LoaderSourceOutputGenerator(AutomaticSourceOutputGenerator):
             preamble += '#include "loader_logger.hpp"\n'
             preamble += '#include "loader_platform.hpp"\n'
             preamble += '#include "runtime_interface.hpp"\n'
-            preamble += '#include "xr_generated_dispatch_table.h"\n\n'
+            preamble += '#include "xr_generated_dispatch_table_core.h"\n\n'
 
             preamble += '#include "xr_dependencies.h"\n'
             preamble += '#include <openxr/openxr.h>\n'
@@ -233,32 +241,21 @@ class LoaderSourceOutputGenerator(AutomaticSourceOutputGenerator):
                         tramp_variable_defines += '    if (XR_SUCCEEDED(result)) {\n'
 
                         # These should be mutually exclusive - verify it.
-                        assert((not cur_cmd.is_destroy_disconnect) or
-                               (pointer_count == 0))
+                        assert ((not cur_cmd.is_destroy_disconnect) or
+                                (pointer_count == 0))
                     else:
                         tramp_variable_defines += self.printCodeGenErrorMessage(
                             'Command %s does not have an OpenXR Object handle as the first parameter.' % cur_cmd.name)
 
                 tramp_param_replace.append(
-                    self.MemberOrParam(type=param.type,
+                    dataclasses.replace(param,
                                         name=cmd_tramp_param_name,
                                         is_const=is_const,
                                         is_handle=cmd_tramp_is_handle,
-                                        is_bool=param.is_bool,
-                                        is_optional=param.is_optional,
-                                        no_auto_validity=param.no_auto_validity,
-                                        is_array=param.is_array,
-                                        is_static_array=param.is_static_array,
                                         static_array_sizes=static_array_sizes,
                                         array_dimen=array_dimen,
-                                        array_count_var=param.array_count_var,
-                                        array_length_for=param.array_length_for,
                                         pointer_count=pointer_count,
-                                        pointer_count_var=param.pointer_count_var,
-                                        is_null_terminated=param.is_null_terminated,
-                                        valid_extension_structs=None,
-                                        cdecl=param.cdecl,
-                                        values=param.values))
+                                        valid_extension_structs=None))
                 count = count + 1
 
             if cur_cmd.protect_value:

@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright 2013-2022 The Khronos Group Inc.
+# Copyright 2013-2024, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -354,6 +354,8 @@ class DocOutputGenerator(OutputGenerator):
                         name, category))
         else:
             body = self.genRequirements(name)
+            if category in ('define',):
+                body = body.strip()
             if alias:
                 # If the type is an alias, just emit a typedef declaration
                 body += 'typedef ' + alias + ' ' + name + ';\n'

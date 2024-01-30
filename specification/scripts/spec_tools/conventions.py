@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright 2013-2022 The Khronos Group Inc.
+# Copyright 2013-2024, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -77,7 +77,7 @@ class ConventionsBase(abc.ABC):
 
     def formatExtension(self, name):
         """Mark up an extension name as a link the spec."""
-        return '`<<{}>>`'.format(name)
+        return 'apiext:{}'.format(name)
 
     @property
     @abc.abstractmethod
@@ -179,7 +179,7 @@ class ConventionsBase(abc.ABC):
 
         Do not edit these defaults, override self.makeProseList().
         """
-        assert(serial_comma)  # did not implement what we did not need
+        assert serial_comma  # did not implement what we did not need
         if isinstance(fmt, str):
             fmt = ProseListFormats.from_string(fmt)
 
@@ -282,7 +282,7 @@ class ConventionsBase(abc.ABC):
         May override."""
         return self.api_prefix + 'EXT_'
 
-    def writeFeature(self, featureExtraProtect, filename):
+    def writeFeature(self, featureName, featureExtraProtect, filename):
         """Return True if OutputGenerator.endFeature should write this feature.
 
         Defaults to always True.

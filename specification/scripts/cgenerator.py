@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright 2013-2022 The Khronos Group Inc.
+# Copyright 2013-2024, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -253,7 +253,7 @@ class COutputGenerator(OutputGenerator):
                 if self.genOpts.conventions is None:
                     raise MissingGeneratorOptionsConventionsError()
                 is_core = self.featureName and self.featureName.startswith(self.conventions.api_prefix + 'VERSION_')
-                if self.genOpts.conventions.writeFeature(self.featureExtraProtect, self.genOpts.filename):
+                if self.genOpts.conventions.writeFeature(self.featureName, self.featureExtraProtect, self.genOpts.filename):
                     self.newline()
                     if self.genOpts.protectFeature:
                         write('#ifndef', self.featureName, file=self.outFile)
@@ -513,7 +513,7 @@ class COutputGenerator(OutputGenerator):
             self.appendSection('commandPointer', decls[1])
 
     def misracstyle(self):
-        return self.genOpts.misracstyle;
+        return self.genOpts.misracstyle
 
     def misracppstyle(self):
-        return self.genOpts.misracppstyle;
+        return self.genOpts.misracppstyle

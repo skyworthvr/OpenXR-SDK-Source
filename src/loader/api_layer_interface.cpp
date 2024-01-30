@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, The Khronos Group Inc.
+// Copyright (c) 2017-2024, The Khronos Group Inc.
 // Copyright (c) 2017-2019 Valve Corporation
 // Copyright (c) 2017-2019 LunarG, Inc.
 //
@@ -9,13 +9,14 @@
 
 #include "api_layer_interface.hpp"
 
-#include "loader_interfaces.h"
+#include "loader_init_data.hpp"
 #include "loader_logger.hpp"
 #include "loader_platform.hpp"
 #include "manifest_file.hpp"
 #include "platform_utils.hpp"
 
 #include <openxr/openxr.h>
+#include <openxr/openxr_loader_negotiation.h>
 
 #include <cstring>
 #include <memory>
@@ -82,6 +83,12 @@ XrResult ApiLayerInterface::GetApiLayerProperties(const std::string& openxr_comm
         return result;
     }
 
+    // check for potential overflow before static_cast<uint32_t>
+    if (manifest_files.size() >= UINT32_MAX) {
+        LoaderLogger::LogErrorMessage(openxr_command, "ApiLayerInterface::GetApiLayerProperties - too many API layers found");
+        return XR_ERROR_RUNTIME_FAILURE;
+    }
+
     manifest_count = static_cast<uint32_t>(manifest_files.size());
     if (nullptr == outgoing_count) {
         LoaderLogger::LogErrorMessage("xrEnumerateInstanceExtensionProperties",
@@ -131,8 +138,8 @@ XrResult ApiLayerInterface::GetInstanceExtensionProperties(const std::string& op
             }
 
             bool found = false;
-            auto num_files = static_cast<uint32_t>(manifest_files.size());
-            for (uint32_t man_file = 0; man_file < num_files; ++man_file) {
+            size_t num_files = manifest_files.size();
+            for (size_t man_file = 0; man_file < num_files; ++man_file) {
                 // If a layer with the provided name exists, get it's instance extension information.
                 if (manifest_files[man_file]->LayerName() == layer_name) {
                     manifest_files[man_file]->GetInstanceExtensionProperties(extension_properties);
@@ -172,8 +179,8 @@ XrResult ApiLayerInterface::GetInstanceExtensionProperties(const std::string& op
         }
 
         // Grab the layer instance extensions information
-        auto num_files = static_cast<uint32_t>(manifest_files.size());
-        for (uint32_t man_file = 0; man_file < num_files; ++man_file) {
+        size_t num_files = manifest_files.size();
+        for (size_t man_file = 0; man_file < num_files; ++man_file) {
             manifest_files[man_file]->GetInstanceExtensionProperties(extension_properties);
         }
     }
@@ -231,21 +238,23 @@ XrResult ApiLayerInterface::LoadApiLayers(const std::string& openxr_command, uin
         for (const auto& layer_name : enabled_explicit_api_layer_names) {
             bool found_this_layer = false;
 
-            for (auto it = explicit_layer_manifest_files.begin(); it != explicit_layer_manifest_files.end();) {
-                bool erased_layer_manifest_file = false;
+            if (layers_already_found.count(layer_name) > 0) {
+                found_this_layer = true;
+            } else {
+                for (auto it = explicit_layer_manifest_files.begin(); it != explicit_layer_manifest_files.end();) {
+                    bool erased_layer_manifest_file = false;
 
-                if (layers_already_found.count(layer_name) > 0) {
-                    found_this_layer = true;
-                } else if (layer_name == (*it)->LayerName()) {
-                    found_this_layer = true;
-                    layers_already_found.insert(layer_name);
-                    enabled_layer_manifest_files_in_init_order.push_back(std::move(*it));
-                    it = explicit_layer_manifest_files.erase(it);
-                    erased_layer_manifest_file = true;
-                }
+                    if (layer_name == (*it)->LayerName()) {
+                        found_this_layer = true;
+                        layers_already_found.insert(layer_name);
+                        enabled_layer_manifest_files_in_init_order.push_back(std::move(*it));
+                        it = explicit_layer_manifest_files.erase(it);
+                        erased_layer_manifest_file = true;
+                    }
 
-                if (!erased_layer_manifest_file) {
-                    it++;
+                    if (!erased_layer_manifest_file) {
+                        it++;
+                    }
                 }
             }
 
@@ -274,6 +283,38 @@ XrResult ApiLayerInterface::LoadApiLayers(const std::string& openxr_command, uin
             LoaderLogger::LogWarningMessage(openxr_command, warning_message);
             continue;
         }
+#ifdef XR_KHR_LOADER_INIT_SUPPORT
+        if (!LoaderInitData::instance().initialized()) {
+            LoaderLogger::LogErrorMessage(openxr_command, "ApiLayerInterface::LoadApiLayers skipping manifest file " +
+                                                              manifest_file->Filename() +
+                                                              " because xrInitializeLoaderKHR was not yet called.");
+
+            LoaderPlatformLibraryClose(layer_library);
+            return XR_ERROR_VALIDATION_FAILURE;
+        }
+        bool forwardedInitLoader = false;
+        {
+            // If we have xrInitializeLoaderKHR exposed as an export, forward call to it.
+            const auto function_name = manifest_file->GetFunctionName("xrInitializeLoaderKHR");
+            auto initLoader =
+                reinterpret_cast<PFN_xrInitializeLoaderKHR>(LoaderPlatformLibraryGetProcAddr(layer_library, function_name));
+            if (initLoader != nullptr) {
+                // we found the entry point one way or another.
+                LoaderLogger::LogInfoMessage(openxr_command,
+                                             "ApiLayerInterface::LoadApiLayers forwarding xrInitializeLoaderKHR call to API layer "
+                                             "before calling xrNegotiateLoaderApiLayerInterface.");
+                XrResult res = initLoader(LoaderInitData::instance().getParam());
+                if (!XR_SUCCEEDED(res)) {
+                    LoaderLogger::LogErrorMessage(
+                        openxr_command, "ApiLayerInterface::LoadApiLayers forwarded call to xrInitializeLoaderKHR failed.");
+
+                    LoaderPlatformLibraryClose(layer_library);
+                    return res;
+                }
+                forwardedInitLoader = true;
+            }
+        }
+#endif
 
         // Get and settle on an layer interface version (using any provided name if required).
         std::string function_name = manifest_file->GetFunctionName("xrNegotiateLoaderApiLayerInterface");
@@ -316,6 +357,38 @@ XrResult ApiLayerInterface::LoadApiLayers(const std::string& openxr_command, uin
             LoaderLogger::LogWarningMessage(openxr_command, warning_message);
             res = XR_ERROR_FILE_CONTENTS_INVALID;
         }
+
+#ifdef XR_KHR_LOADER_INIT_SUPPORT
+        if (XR_SUCCEEDED(res) && !forwardedInitLoader) {
+            // Forward initialize loader call, where possible and if we did not do so before.
+            PFN_xrVoidFunction initializeVoid = nullptr;
+            PFN_xrInitializeLoaderKHR initialize = nullptr;
+
+            // Now we may try asking xrGetInstanceProcAddr on the API layer
+            if (XR_SUCCEEDED(api_layer_info.getInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", &initializeVoid))) {
+                if (initializeVoid == nullptr) {
+                    LoaderLogger::LogErrorMessage(openxr_command,
+                                                  "ApiLayerInterface::LoadApiLayers got success from xrGetInstanceProcAddr "
+                                                  "for xrInitializeLoaderKHR, but output a null pointer.");
+                    res = XR_ERROR_RUNTIME_FAILURE;
+                } else {
+                    initialize = reinterpret_cast<PFN_xrInitializeLoaderKHR>(initializeVoid);
+                }
+            }
+            if (initialize != nullptr) {
+                // we found the entry point one way or another.
+                LoaderLogger::LogInfoMessage(openxr_command,
+                                             "ApiLayerInterface::LoadApiLayers forwarding xrInitializeLoaderKHR call to API layer "
+                                             "after calling xrNegotiateLoaderApiLayerInterface.");
+                res = initialize(LoaderInitData::instance().getParam());
+                if (!XR_SUCCEEDED(res)) {
+                    LoaderLogger::LogErrorMessage(
+                        openxr_command, "ApiLayerInterface::LoadApiLayers forwarded call to xrInitializeLoaderKHR failed.");
+                }
+            }
+        }
+#endif
+
         if (XR_FAILED(res)) {
             if (!any_loaded) {
                 last_error = res;

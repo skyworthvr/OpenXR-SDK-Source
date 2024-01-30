@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright 2013-2022 The Khronos Group Inc.
+# Copyright 2013-2024, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 """Base class for source/header/doc generators, as well as some utility functions."""
@@ -14,6 +14,7 @@ import re
 import shutil
 import sys
 import tempfile
+from typing import Optional
 try:
     from pathlib import Path
 except ImportError:
@@ -772,7 +773,8 @@ class OutputGenerator:
             invert = '~' in strVal
             paren = '(' in strVal
             number = strVal.strip("()~UL")
-            number += 'U'
+            if not alias:
+                number += 'U'
             strVal = "~" if invert else ""
             strVal += number
             if paren:
@@ -1288,4 +1290,4 @@ class OutputGenerator:
         write('', file=self.outFile)
 
     def setRegistry(self, registry):
-        self.registry = registry
+        self.registry: Optional["Registry"] = registry

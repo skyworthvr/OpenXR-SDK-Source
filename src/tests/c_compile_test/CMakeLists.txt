@@ -1,4 +1,4 @@
-# Copyright (c) 2017 The Khronos Group Inc.
+# Copyright (c) 2017-2024, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -14,30 +14,45 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Author:
-#
 
-add_executable(openxr_c_compile_test
-    main.c
+if(ANDROID)
+    add_library(
+        openxr_c_compile_test MODULE main.c
+                                     $<TARGET_OBJECTS:android_native_app_glue>
+    )
+    target_link_libraries(
+        openxr_c_compile_test ${ANDROID_LIBRARY} ${ANDROID_LOG_LIBRARY}
+    )
+    target_include_directories(
+        openxr_c_compile_test PRIVATE ${ANDROID_NATIVE_APP_GLUE}
+    )
+else()
+    add_executable(openxr_c_compile_test main.c)
+endif()
+set_target_properties(openxr_c_compile_test PROPERTIES FOLDER ${TESTS_FOLDER})
+
+target_include_directories(
+    openxr_c_compile_test
+    PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/src/common"
+            "${PROJECT_SOURCE_DIR}/external/include"
 )
-add_dependencies(openxr_c_compile_test
-    generate_openxr_header
-)
-target_include_directories(openxr_c_compile_test
-    PRIVATE ${PROJECT_SOURCE_DIR}/src
-    PRIVATE ${PROJECT_SOURCE_DIR}/src/common
-    PRIVATE ${PROJECT_BINARY_DIR}/include
-    PRIVATE ${PROJECT_SOURCE_DIR}/external/include
-)
-if(Vulkan_FOUND)
-    target_include_directories(openxr_c_compile_test
-        PRIVATE ${Vulkan_INCLUDE_DIRS}
+if(XR_USE_GRAPHICS_API_VULKAN)
+    target_include_directories(
+        openxr_c_compile_test PRIVATE ${Vulkan_INCLUDE_DIRS}
     )
 endif()
 
-target_link_libraries(openxr_c_compile_test openxr_loader)
+target_link_libraries(openxr_c_compile_test OpenXR::openxr_loader)
 if(MSVC)
-    target_compile_options(openxr_c_compile_test PRIVATE /Zc:wchar_t /Zc:forScope /W4 /WX)
+    target_compile_options(
+        openxr_c_compile_test PRIVATE /Zc:wchar_t /Zc:forScope /W4
+    )
+    if(NOT
+       CMAKE_CXX_COMPILER_ID
+       STREQUAL
+       "Clang"
+    )
+        # If actually msvc and not clang-cl
+        target_compile_options(openxr_c_compile_test PRIVATE /WX)
+    endif()
 endif()
-
-set_target_properties(openxr_c_compile_test PROPERTIES FOLDER ${TESTS_FOLDER})

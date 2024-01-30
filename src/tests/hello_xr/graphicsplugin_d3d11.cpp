@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, The Khronos Group Inc.
+// Copyright (c) 2017-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -8,7 +8,7 @@
 #include "graphicsplugin.h"
 #include "options.h"
 
-#if defined(XR_USE_GRAPHICS_API_D3D11) && !defined(MISSING_DIRECTX_COLORS)
+#if defined(XR_USE_GRAPHICS_API_D3D11)
 
 #include <common/xr_linear.h>
 #include <DirectXColors.h>
@@ -142,10 +142,9 @@ struct D3D11GraphicsPlugin : public IGraphicsPlugin {
         uint32_t capacity, const XrSwapchainCreateInfo& /*swapchainCreateInfo*/) override {
         // Allocate and initialize the buffer of image structs (must be sequential in memory for xrEnumerateSwapchainImages).
         // Return back an array of pointers to each swapchain image struct so the consumer doesn't need to know the type/size.
-        std::vector<XrSwapchainImageD3D11KHR> swapchainImageBuffer(capacity);
+        std::vector<XrSwapchainImageD3D11KHR> swapchainImageBuffer(capacity, {XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR});
         std::vector<XrSwapchainImageBaseHeader*> swapchainImageBase;
         for (XrSwapchainImageD3D11KHR& image : swapchainImageBuffer) {
-            image.type = XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR;
             swapchainImageBase.push_back(reinterpret_cast<XrSwapchainImageBaseHeader*>(&image));
         }
 

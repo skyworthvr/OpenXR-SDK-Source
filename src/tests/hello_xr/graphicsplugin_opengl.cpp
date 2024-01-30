@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, The Khronos Group Inc.
+// Copyright (c) 2017-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -81,6 +81,7 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
 
     ksGpuWindow window{};
 
+#if !defined(XR_USE_PLATFORM_MACOS)
     void DebugMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message) {
         (void)source;
         (void)type;
@@ -88,6 +89,7 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
         (void)severity;
         Log::Write(Log::Level::Info, "GL Debug: " + std::string(message, 0, length));
     }
+#endif  // !defined(XR_USE_PLATFORM_MACOS)
 
     void InitializeDevice(XrInstance instance, XrSystemId systemId) override {
         // Extension function must be loaded by name
@@ -139,8 +141,13 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
         // TODO: Just need something other than NULL here for now (for validation).  Eventually need
         //       to correctly put in a valid pointer to an wl_display
         m_graphicsBinding.display = reinterpret_cast<wl_display*>(0xFFFFFFFF);
+#elif defined(XR_USE_PLATFORM_MACOS)
+#error OpenGL bindings for Mac have not been implemented
+#else
+#error Platform not supported
 #endif
 
+#if !defined(XR_USE_PLATFORM_MACOS)
         glEnable(GL_DEBUG_OUTPUT);
         glDebugMessageCallback(
             [](GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message,
@@ -148,6 +155,7 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
                 ((OpenGLGraphicsPlugin*)userParam)->DebugMessageCallback(source, type, id, severity, length, message);
             },
             this);
+#endif  // !defined(XR_USE_PLATFORM_MACOS)
 
         InitializeResources();
     }
@@ -249,10 +257,9 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
         uint32_t capacity, const XrSwapchainCreateInfo& /*swapchainCreateInfo*/) override {
         // Allocate and initialize the buffer of image structs (must be sequential in memory for xrEnumerateSwapchainImages).
         // Return back an array of pointers to each swapchain image struct so the consumer doesn't need to know the type/size.
-        std::vector<XrSwapchainImageOpenGLKHR> swapchainImageBuffer(capacity);
+        std::vector<XrSwapchainImageOpenGLKHR> swapchainImageBuffer(capacity, {XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR});
         std::vector<XrSwapchainImageBaseHeader*> swapchainImageBase;
         for (XrSwapchainImageOpenGLKHR& image : swapchainImageBuffer) {
-            image.type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR;
             swapchainImageBase.push_back(reinterpret_cast<XrSwapchainImageBaseHeader*>(&image));
         }
 
@@ -368,6 +375,10 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
     XrGraphicsBindingOpenGLXcbKHR m_graphicsBinding{XR_TYPE_GRAPHICS_BINDING_OPENGL_XCB_KHR};
 #elif defined(XR_USE_PLATFORM_WAYLAND)
     XrGraphicsBindingOpenGLWaylandKHR m_graphicsBinding{XR_TYPE_GRAPHICS_BINDING_OPENGL_WAYLAND_KHR};
+#elif defined(XR_USE_PLATFORM_MACOS)
+#error OpenGL bindings for Mac have not been implemented
+#else
+#error Platform not supported
 #endif
 
     std::list<std::vector<XrSwapchainImageOpenGLKHR>> m_swapchainImageBuffers;

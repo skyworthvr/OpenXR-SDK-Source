@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2013-2022, The Khronos Group Inc.
+# Copyright (c) 2013-2024, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -90,7 +90,8 @@ class CReflectionOutputGenerator(OutputGenerator):
         return ret
 
     def endFile(self):
-        assert(self.template)
+        assert self.template
+        assert self.registry
         file_data = ''
 
         unprotected_structs = self._get_structs_for_protect()

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, The Khronos Group Inc.
+// Copyright (c) 2017-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -8,7 +8,7 @@
 #include "graphicsplugin.h"
 #include "options.h"
 
-#if defined(XR_USE_GRAPHICS_API_D3D12) && !defined(MISSING_DIRECTX_COLORS)
+#if defined(XR_USE_GRAPHICS_API_D3D12)
 
 #include <common/xr_linear.h>
 #include <DirectXColors.h>

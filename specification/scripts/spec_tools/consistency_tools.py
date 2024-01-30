@@ -1,10 +1,11 @@
 #!/usr/bin/python3 -i
 #
 # Copyright (c) 2019 Collabora, Ltd.
+# Copyright (c) 2018-2024, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-# Author(s):    Ryan Pavlik <ryan.pavlik@collabora.com>
+# Author(s):    Rylie Pavlik <rylie.pavlik@collabora.com>
 """Provides utilities to write a script to verify XML registry consistency."""
 
 import re
@@ -151,7 +152,13 @@ class XMLChecker:
 
         Returns the stripped name and the tag, or the input and None if there was no tag.
         """
+        # Author tag can be suffixed with experimental version
+        name_no_experimental = re.sub("X[0-9]*$", "", name)
+
         for t in self.tags:
+            if name_no_experimental.endswith(t):
+                name = name_no_experimental
+
             if name.endswith(t):
                 name = name[:-(len(t))]
                 if name[-1] == "_":

@@ -1,10 +1,11 @@
 #!/usr/bin/python3
 #
 # Copyright (c) 2019 Collabora, Ltd.
+# Copyright (c) 2018-2024, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-# Author(s):    Ryan Pavlik <ryan.pavlik@collabora.com>
+# Author(s):    Rylie Pavlik <rylie.pavlik@collabora.com>
 #
 # Purpose:      This script checks some "business logic" in the XML registry.
 
@@ -120,10 +121,7 @@ class EntityDatabase(OrigEntityDatabase):
         # and it provides file line info which is useful in messages.
         try:
             import lxml.etree as etree
-            HAS_LXML = True
         except ImportError:
-            HAS_LXML = False
-        if not HAS_LXML:
             return super().makeRegistry()
 
         registryFile = str(SPECIFICATION_DIR / 'registry/xr.xml')
@@ -183,6 +181,23 @@ class Checker(XMLChecker):
 
         # Keys are entity names, values are tuples or lists of message text to suppress.
         suppressions: Dict[str, Union[Tuple[str, ...], List[str]]] = {
+            # xrCreateApiLayerInstance has a very constrained list of code specified in the spec
+            "xrCreateApiLayerInstance": (
+                "Missing expected return code(s) XR_ERROR_LIMIT_REACHED,XR_ERROR_OUT_OF_MEMORY implied because of the name of this command",
+                "Missing expected return code(s) XR_ERROR_OUT_OF_MEMORY,XR_ERROR_LIMIT_REACHED implied because of the name of this command",
+                "Missing expected return code(s) XR_ERROR_HANDLE_INVALID,XR_ERROR_INSTANCE_LOST implied because of input of type XrInstance",
+                "Missing expected return code(s) XR_ERROR_INSTANCE_LOST,XR_ERROR_HANDLE_INVALID implied because of input of type XrInstance",
+            ),
+            # XrLoaderInterfaceStructs doesn't match the OpenXR pattern :(
+            "XrLoaderInterfaceStructs": (
+                "Got an enum value whose name does not match the pattern: got XR_LOADER_INTERFACE_STRUCT_API_LAYER_CREATE_INFO but expected something that started with XR_LOADER_INTERFACE_STRUCTS_ due to typename being XrLoaderInterfaceStructs",
+                "Got an enum value whose name does not match the pattern: got XR_LOADER_INTERFACE_STRUCT_UNINTIALIZED but expected something that started with XR_LOADER_INTERFACE_STRUCTS_ due to typename being XrLoaderInterfaceStructs",
+                "Got an enum value whose name does not match the pattern: got XR_LOADER_INTERFACE_STRUCT_RUNTIME_REQUEST but expected something that started with XR_LOADER_INTERFACE_STRUCTS_ due to typename being XrLoaderInterfaceStructs",
+                "Got an enum whose name does not match the pattern: the type is XrLoaderInterfaceStructs which would cause values to start with XR_LOADER_INTERFACE_STRUCTS_ but got a different longest common prefix XR_LOADER_INTERFACE_STRUCT_",
+                "Got an enum value whose name does not match the pattern: got XR_LOADER_INTERFACE_STRUCT_LOADER_INFO but expected something that started with XR_LOADER_INTERFACE_STRUCTS_ due to typename being XrLoaderInterfaceStructs",
+                "Got an enum value whose name does not match the pattern: got XR_LOADER_INTERFACE_STRUCT_API_LAYER_NEXT_INFO but expected something that started with XR_LOADER_INTERFACE_STRUCTS_ due to typename being XrLoaderInterfaceStructs",
+                "Got an enum value whose name does not match the pattern: got XR_LOADER_INTERFACE_STRUCT_API_LAYER_REQUEST but expected something that started with XR_LOADER_INTERFACE_STRUCTS_ due to typename being XrLoaderInterfaceStructs",
+            ),
             # path to string can take any path
             "xrPathToString": ("Missing expected return code(s) XR_ERROR_PATH_UNSUPPORTED implied because of input of type XrPath",),
             # Just a case error, vendor declined to modify
@@ -240,7 +255,7 @@ class Checker(XMLChecker):
 
             if bare_end:
                 # If bare_end is set, end is always non-empty because it means it's a bitmask.
-                assert(end)
+                assert end
                 if not name.endswith(end) and not stripped_name.endswith(bare_end):
                     self.record_error('Got an enum value whose name does not match the pattern: got', name,
                                       'but expected something that ended with', end, ', or', bare_end,
@@ -275,7 +290,7 @@ class Checker(XMLChecker):
         codes = super().get_codes_for_command_and_type(cmd_name, type_name)
 
         # Filter out any based on the specific command
-        if cmd_name.startswith(_DESTROY_PREFIX):
+        if codes is not None and cmd_name.startswith(_DESTROY_PREFIX):
             # xrDestroyX should not return XR_ERROR_anything_LOST or XR_anything_LOSS_PENDING
             codes = {x for x in codes if not x.endswith("_LOST")}
             codes = {x for x in codes if not x.endswith("_LOSS_PENDING")}
@@ -346,7 +361,7 @@ class Checker(XMLChecker):
             self.record_error('Two-call-idiom call has count parameter', param_name,
                               'with type', param_type, 'instead of uint32_t')
         type_elem = param_elem.find('type')
-        assert(type_elem is not None)
+        assert type_elem is not None
 
         tail = type_elem.tail.strip()
         if '*' != tail:
@@ -370,7 +385,7 @@ class Checker(XMLChecker):
                               optional, '- expected "true"')
 
         type_elem = param_elem.find('type')
-        assert(type_elem is not None)
+        assert type_elem is not None
 
         tail = type_elem.tail.strip()
         if '*' not in tail:
@@ -378,6 +393,7 @@ class Checker(XMLChecker):
                               'that is not a pointer:', type_elem.text, type_elem.tail)
 
         length = LengthEntry.parse_len_from_param(param_elem)
+        assert length is not None
         if not length[0].other_param_name:
             self.record_error('Two-call-idiom call has array parameter', param_name,
                               'whose first length is not another parameter:', length[0])
@@ -444,9 +460,11 @@ class Checker(XMLChecker):
         if not array_param_name:
             self.record_error('Apparent two-call-idiom call missing an array output parameter')
 
-        if not capacity_input_param_name or \
-                not count_output_param_name or \
-                not array_param_name:
+        if (capacity_input_param_match is None or
+                count_output_param_match is None or
+                capacity_input_param_name is None or
+                count_output_param_name is None or
+                array_param_name is None):
             # If we're missing at least one, stop checking two-call stuff here.
             return
 
@@ -473,7 +491,7 @@ class Checker(XMLChecker):
         Called from check."""
         t = info.elem.find('proto/type')
         if t is None:
-            self.record_warning("Got a command without a return type?")
+            self.record_error("Got a command without a return type?")
         else:
             return_type = t.text
             if return_type != 'XrResult':
@@ -566,7 +584,7 @@ class Checker(XMLChecker):
                                           "but XML says", ver_from_xml)
                 else:
                     if ver_from_xml == '1':
-                        self.record_warning(
+                        self.record_error(
                             "Cannot find version history in spec text - make sure it has lines starting exactly like '* Revision 1, ....'",
                             filename=fn)
                     else:
@@ -601,8 +619,8 @@ class Checker(XMLChecker):
                     continue
                 # print(name, item_name)
                 if not item_name.endswith(vendor):
-                    self.record_warning("Extension-defined name", item_name,
-                                        "has wrong or missing vendor tag: expected to end with", vendor)
+                    self.record_error("Extension-defined name", item_name,
+                                      "has wrong or missing vendor tag: expected to end with", vendor)
 
 
 if __name__ == "__main__":
