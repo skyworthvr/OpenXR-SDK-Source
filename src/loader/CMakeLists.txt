@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2024, The Khronos Group Inc.
+# Copyright (c) 2017-2025 The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -306,6 +306,7 @@ if(ANDROID)
     target_include_directories(
         openxr_loader PRIVATE ${JNIPP_ROOT} ${JNIWRAPPER_ROOT}
     )
+
     target_compile_definitions(
         openxr_loader PRIVATE XR_KHR_LOADER_INIT_SUPPORT=1
     )
@@ -414,7 +415,7 @@ install(
 )
 
 include(CMakePackageConfigHelpers)
-set(INCLUDE_INSTALL_DIR include/)
+set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_INCLUDEDIR}/)
 configure_package_config_file(
     OpenXRConfig.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/OpenXRConfig.cmake
     INSTALL_DESTINATION ${TARGET_DESTINATION}
@@ -471,6 +472,32 @@ if(WIN32 AND INSTALL_TO_ARCHITECTURE_PREFIXES)
         COMPONENT CMakeConfigs
     )
 elseif(ANDROID AND INSTALL_TO_ARCHITECTURE_PREFIXES)
+    # Root directory CMake config and version files, in case you extract the .aar
+    set(TARGET_SUBDIR cmake/openxr)
+    set(WARNING "This is a generated file - do not edit!")
+    set(FN OpenXRConfig)
+    configure_file(
+        ../cmake/metaconfig_android.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/metaconfig.cmake @ONLY
+    )
+    install(
+        FILES ${CMAKE_CURRENT_BINARY_DIR}/metaconfig.cmake
+        DESTINATION .
+        RENAME OpenXRConfig.cmake
+        COMPONENT CMakeConfigs
+    )
+
+    set(FN OpenXRConfigVersion)
+    configure_file(
+        ../cmake/metaconfig_android.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/metaconfigversion.cmake @ONLY
+    )
+    install(
+        FILES ${CMAKE_CURRENT_BINARY_DIR}/metaconfigversion.cmake
+        DESTINATION .
+        RENAME OpenXRConfigVersion.cmake
+        COMPONENT CMakeConfigs
+    )
 
     # json data files for a "prefab" AAR
     configure_file(abi.json "${CMAKE_CURRENT_BINARY_DIR}/abi.json" @ONLY)
@@ -487,6 +514,13 @@ elseif(ANDROID AND INSTALL_TO_ARCHITECTURE_PREFIXES)
         COMPONENT Prefab
     )
 
+    install(
+        FILES module.json
+        DESTINATION ${PREFAB_LOADER_MODULE_INSTALL_DIR}
+        COMPONENT Prefab
+    )
+
+    # Manifest to merge with the consuming app
     configure_file(
         AndroidManifest.xml.in
         "${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml"
@@ -496,10 +530,13 @@ elseif(ANDROID AND INSTALL_TO_ARCHITECTURE_PREFIXES)
         DESTINATION .
         COMPONENT Prefab
     )
+
+    # Copy of library for older build systems. Gets de-duplicated in AAR so no size change.
     install(
-        FILES module.json
-        DESTINATION ${PREFAB_LOADER_MODULE_INSTALL_DIR}
-        COMPONENT Prefab
+        TARGETS openxr_loader
+        RUNTIME DESTINATION "jni/${ANDROID_ABI}/" COMPONENT Loader
+        LIBRARY DESTINATION "jni/${ANDROID_ABI}/" COMPONENT Loader
+        ARCHIVE DESTINATION "jni/${ANDROID_ABI}/" COMPONENT Loader
     )
 
     # These get used directly by build-aar.sh

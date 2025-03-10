@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2024, The Khronos Group Inc.
+// Copyright (c) 2017-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: CC-BY-4.0
 
@@ -156,9 +156,11 @@ choices by the device user.
 The defined URIs for the ContentProvider authorities are as follows:
 
 * `/openxr/__major_ver__/abi/__abi__/runtimes/active` - This URI represents
-  a "table" containing at most one item, the currently active runtime.
-  The policy of which runtime is chosen to be active (if more than one is
-  installed) is left to the content provider.
+  a table containing zero, one, or more items, corresponding to the single
+  currently active runtime.
+  The loader should attempt to use `dlopen` on the returned items
+  sequentially and use the first item for which `dlopen` succeeds.
+  This is to allow backwards compatibility with obsolete loader revisions.
   No sort order is required to be honored by the content provider.
   Available columns include:
 ** `package_name` - Name of the package providing the runtime
@@ -319,7 +321,7 @@ architectures and ABIs is used.
 
 |`armv5te`
   |
-  | `armel`
+  | `armel` (See <<armhf-rpios-note,note>>.)
   | 32-bit ARMv5TE architecture or compatible, little endian
 
 |`mips64`
@@ -377,6 +379,11 @@ architectures and ABIs is used.
   | `sparc64`
   | 64-bit SPARC architecture
 
+|`loongarch64`
+  |
+  | `loong64`
+  | 64-bit LoongArch architecture, little endian (LP64D ABI)
+
 |===
 
 [[android-arm32-note]]
@@ -385,6 +392,11 @@ identifier for 32-bit ARM in Android.
 While the Android ABI called `armeabi-v7a` does not use VFP PCS as the
 __system__ ABI, a definition in `openxr_platform_defines.h` enables the VFP
 PCS calling convention for all OpenXR API calls and function pointers.
+
+[[armhf-rpios-note]]
+Note: Raspberry Pi OS differs in its architecture definitions from upstream
+Debian by redefining `armhf` as ARMv6, rather than ARMv7.
+Therefore, on that operating system, `armhf` maps to ID `armv5te`.
 
 [[runtime-enumeration]]
 ==== Runtime Enumeration

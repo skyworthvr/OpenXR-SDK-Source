@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2024, The Khronos Group Inc.
+// Copyright (c) 2017-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -27,11 +27,11 @@
 
 #if defined(XR_USE_PLATFORM_ANDROID)
 #include <android_native_app_glue.h>
-#include <android/log.h>
 
 #define LOG_TAG "list_json"
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#include "android_logging.h"
+#define LOGE(...) ALOGE(__VA_ARGS__)
+#define LOGI(...) ALOGI(__VA_ARGS__)
 #else  // !defined(XR_USE_PLATFORM_ANDROID)
 #define LOGE(...) fprintf(stderr, __VA_ARGS__)
 #define LOGI(...) printf(__VA_ARGS__)
@@ -130,7 +130,8 @@ static std::string stringFromXrVersion(XrVersion ver) {
 static int main_body() {
     XrInstanceCreateInfo instanceCreateInfo = {XR_TYPE_INSTANCE_CREATE_INFO};
     strncpy(instanceCreateInfo.applicationInfo.applicationName, "OpenXR-Inventory List", XR_MAX_APPLICATION_NAME_SIZE);
-    instanceCreateInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
+    // Current version is 1.1.x, but this app only requires 1.0.x
+    instanceCreateInfo.applicationInfo.apiVersion = XR_API_VERSION_1_0;
 
     XrInstance instance = XR_NULL_HANDLE;
 

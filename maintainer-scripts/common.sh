@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2019-2024, The Khronos Group Inc.
+# Copyright (c) 2019-2025 The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -36,7 +36,7 @@ makeSubset() {
 
 COMMON_FILES=".gitignore .gitattributes .git-blame-ignore-revs CODE_OF_CONDUCT.md LICENSES .reuse .editorconfig HOTFIX"
 export COMMON_FILES
-COMMON_EXCLUDE_PATTERN="KhronosExperimental"
+COMMON_EXCLUDE_PATTERN="(KhronosExperimental|KhronosConfidential)"
 export COMMON_EXCLUDE_PATTERN
 
 add_to_tar() {
@@ -129,7 +129,7 @@ getDocsFilenames() {
         specification/sources/extprocess/ \
         include/ \
         specification/ \
-        | grep -v "${COMMON_EXCLUDE_PATTERN}" \
+        | grep -E -v "${COMMON_EXCLUDE_PATTERN}" \
         | grep -v "specification/loader" \
         | grep -v "vuid[.]adoc" \
         | grep -v "CMakeLists.txt" \
@@ -154,6 +154,7 @@ getSDKSourceFilenames() {
         checkCodespell \
         CMakeLists.txt \
         format_file.sh \
+        open-in-docker.sh \
         LICENSE \
         openxr-codespell.exclude \
         runClangFormat.sh \
@@ -165,9 +166,12 @@ getSDKSourceFilenames() {
         .azure-pipelines/openxr-sdk-source.yml \
         .github/dependabot.yml \
         .github/scripts \
+        .github/.java-version* \
         .github/workflows/android.yml \
         .github/workflows/check_clang_format_and_codespell.yml \
         .github/workflows/gradle-wrapper-validation.yml \
+        .github/workflows/macos-build.yml \
+        .github/workflows/macOS.yml \
         .github/workflows/msvc-build-preset.yml \
         .github/workflows/pr.yml \
         .github/workflows/release.yml \
@@ -207,12 +211,14 @@ getSDKSourceFilenames() {
         src/external/android-jni-wrappers \
         src/external/jnipp \
         src/external/jsoncpp \
+        src/external/catch2 \
+        src/external/metal-cpp \
         src/loader \
         src/scripts \
         src/tests \
         src/version.cmake \
         src/version.gradle \
-        | grep -v "${COMMON_EXCLUDE_PATTERN}" \
+        | grep -E -v "${COMMON_EXCLUDE_PATTERN}" \
         | grep -v "conformance" \
         | grep -v "template_gen_dispatch" \
         | grep -v "function_info" \
@@ -234,6 +240,7 @@ getSDKFilenames() {
         .azure-pipelines/nuget \
         .azure-pipelines/openxr-sdk.yml \
         .github/scripts \
+        .github/.java-version* \
         .github/workflows/android.yml \
         .github/workflows/check_clang_format_and_codespell.yml \
         .github/workflows/msvc-build-preset.yml \
@@ -251,7 +258,7 @@ getSDKFilenames() {
         src/external/jsoncpp \
         src/loader \
         src/version.cmake \
-        | grep -v "${COMMON_EXCLUDE_PATTERN}" \
+        | grep -E -v "${COMMON_EXCLUDE_PATTERN}" \
         | grep -v "gfxwrapper" \
         | grep -v "include/.gitignore" \
         | grep -v "images"
@@ -275,6 +282,7 @@ getConformanceFilenames() {
         runClangFormat.sh \
         tox.ini \
         .github/dependabot.yml \
+        .github/.java-version* \
         .github/scripts \
         .github/workflows/android-cts-build.yml \
         .github/workflows/android-cts-pr.yml \
@@ -297,6 +305,7 @@ getConformanceFilenames() {
         maintainer-scripts/check-changelog-fragments.sh \
         specification/.gitignore \
         specification/registry/*.xml \
+        specification/config \
         specification/scripts \
         specification/Makefile \
         specification/README.md \
@@ -313,7 +322,7 @@ getConformanceFilenames() {
         src/scripts \
         src/version.cmake \
         src/version.gradle \
-        | grep -v "${COMMON_EXCLUDE_PATTERN}" \
+        | grep -E -v "${COMMON_EXCLUDE_PATTERN}" \
         | grep -v "htmldiff" \
         | grep -v "katex"
 }

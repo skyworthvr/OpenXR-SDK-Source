@@ -1,7 +1,8 @@
-// Copyright (c) 2017-2024, The Khronos Group Inc.
+// Copyright (c) 2017-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "openxr/openxr.h"
 #include "pch.h"
 #include "common.h"
 #include "options.h"
@@ -192,7 +193,9 @@ struct OpenXrProgram : IOpenXrProgram {
         createInfo.enabledExtensionNames = extensions.data();
 
         strcpy(createInfo.applicationInfo.applicationName, "HelloXR");
-        createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
+
+        // Current version is 1.1.x, but hello_xr only requires 1.0.x
+        createInfo.applicationInfo.apiVersion = XR_API_VERSION_1_0;
 
         CHECK_XRCMD(xrCreateInstance(&createInfo, &m_instance));
     }

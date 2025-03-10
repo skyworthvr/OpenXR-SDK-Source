@@ -1,6 +1,6 @@
-#!/usr/bin/python3 -i
+#!/usr/bin/env python3 -i
 #
-# Copyright 2013-2024, The Khronos Group Inc.
+# Copyright 2013-2025 The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 """Utilities for working with attributes of the XML registry."""
@@ -69,7 +69,7 @@ class LengthEntry:
 
     def __repr__(self):
         "Formats an object for repr(), debugger display, etc."
-        return 'spec_tools.attributes.LengthEntry("{}")'.format(self.full_reference)
+        return f'spec_tools.attributes.LengthEntry("{self.full_reference}")'
 
     @staticmethod
     def parse_len_from_param(param):
@@ -110,7 +110,7 @@ class ExternSyncEntry:
 
     def __repr__(self):
         "Formats an object for repr(), debugger display, etc."
-        return 'spec_tools.attributes.ExternSyncEntry("{}")'.format(self.full_reference)
+        return f'spec_tools.attributes.ExternSyncEntry("{self.full_reference}")'
 
 
 _TRUE_STRING = 'true'

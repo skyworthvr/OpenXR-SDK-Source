@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2024, The Khronos Group Inc.
+// Copyright (c) 2017-2025 The Khronos Group Inc.
 // Copyright (c) 2017 Valve Corporation
 // Copyright (c) 2017 LunarG, Inc.
 //
@@ -23,7 +23,7 @@
 
 #include <string>
 
-#if defined(XR_OS_LINUX) || defined(XR_OS_APPLE)
+#if defined(XR_OS_ANDROID) || defined(XR_OS_LINUX) || defined(XR_OS_APPLE)
 #include <unistd.h>
 
 #define TEST_PATH_SEPARATOR ':'

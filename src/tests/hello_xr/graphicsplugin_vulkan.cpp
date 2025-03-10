@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2024, The Khronos Group Inc.
+// Copyright (c) 2017-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1378,6 +1378,16 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
 #endif  // defined(VK_USE_PLATFORM_WIN32_KHR)
 #endif  // defined(USE_MIRROR_WINDOW)
 
+        VkDebugUtilsMessengerCreateInfoEXT debugInfo{VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
+        debugInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+#if !defined(NDEBUG)
+        debugInfo.messageSeverity |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
+#endif
+        debugInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                                VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        debugInfo.pfnUserCallback = debugMessageThunk;
+        debugInfo.pUserData = this;
+
         VkApplicationInfo appInfo{VK_STRUCTURE_TYPE_APPLICATION_INFO};
         appInfo.pApplicationName = "hello_xr";
         appInfo.applicationVersion = 1;
@@ -1386,6 +1396,7 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
         appInfo.apiVersion = VK_API_VERSION_1_0;
 
         VkInstanceCreateInfo instInfo{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+        instInfo.pNext = &debugInfo;
         instInfo.pApplicationInfo = &appInfo;
         instInfo.enabledLayerCount = (uint32_t)layers.size();
         instInfo.ppEnabledLayerNames = layers.empty() ? nullptr : layers.data();
@@ -1402,21 +1413,8 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
 
         vkCreateDebugUtilsMessengerEXT =
             (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_vkInstance, "vkCreateDebugUtilsMessengerEXT");
-        vkDestroyDebugUtilsMessengerEXT =
-            (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_vkInstance, "vkDestroyDebugUtilsMessengerEXT");
 
-        if (vkCreateDebugUtilsMessengerEXT != nullptr && vkDestroyDebugUtilsMessengerEXT != nullptr) {
-            VkDebugUtilsMessengerCreateInfoEXT debugInfo{VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
-            debugInfo.messageSeverity =
-                VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
-#if !defined(NDEBUG)
-            debugInfo.messageSeverity |=
-                VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
-#endif
-            debugInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                                    VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-            debugInfo.pfnUserCallback = debugMessageThunk;
-            debugInfo.pUserData = this;
+        if (vkCreateDebugUtilsMessengerEXT != nullptr) {
             CHECK_VKCMD(vkCreateDebugUtilsMessengerEXT(m_vkInstance, &debugInfo, nullptr, &m_vkDebugUtilsMessenger));
         }
 
@@ -1636,8 +1634,7 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
         XrMatrix4x4f proj;
         XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_VULKAN, layerView.fov, 0.05f, 100.0f);
         XrMatrix4x4f toView;
-        XrVector3f scale{1.f, 1.f, 1.f};
-        XrMatrix4x4f_CreateTranslationRotationScale(&toView, &pose.position, &pose.orientation, &scale);
+        XrMatrix4x4f_CreateFromRigidTransform(&toView, &pose);
         XrMatrix4x4f view;
         XrMatrix4x4f_InvertRigidBody(&view, &toView);
         XrMatrix4x4f vp;
@@ -1665,6 +1662,7 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
         // Cycle the window's swapchain on the last view rendered
         if (swapchainContext == &m_swapchainImageContexts.back()) {
             m_swapchain.Acquire();
+            m_swapchain.Wait();
             m_swapchain.Present(m_vkQueue);
         }
 #endif
@@ -1699,7 +1697,6 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
 #endif
 
     PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT{nullptr};
-    PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT{nullptr};
     VkDebugUtilsMessengerEXT m_vkDebugUtilsMessenger{VK_NULL_HANDLE};
 
     static std::string vkObjectTypeToString(VkObjectType objectType) {
@@ -1854,6 +1851,19 @@ struct VulkanGraphicsPluginLegacy : public VulkanGraphicsPlugin {
     virtual XrStructureType GetGraphicsBindingType() const override { return XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR; }
     virtual XrStructureType GetSwapchainImageType() const override { return XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR; }
 
+    static void LogVulkanExtensions(const std::string title, const std::vector<const char*>& extensions, unsigned int start = 0) {
+        const std::string indentStr(1, ' ');
+
+        Log::Write(Log::Level::Verbose, Fmt("%s: (%d)", title.c_str(), extensions.size() - start));
+        for (auto ext : extensions) {
+            if (start) {
+                start--;
+                continue;
+            }
+            Log::Write(Log::Level::Verbose, Fmt("%s  Name=%s", indentStr.c_str(), ext));
+        }
+    }
+
     virtual XrResult CreateVulkanInstanceKHR(XrInstance instance, const XrVulkanInstanceCreateInfoKHR* createInfo,
                                              VkInstance* vulkanInstance, VkResult* vulkanResult) override {
         PFN_xrGetVulkanInstanceExtensionsKHR pfnGetVulkanInstanceExtensionsKHR = nullptr;
@@ -1869,11 +1879,14 @@ struct VulkanGraphicsPluginLegacy : public VulkanGraphicsPlugin {
         {
             // Note: This cannot outlive the extensionNames above, since it's just a collection of views into that string!
             std::vector<const char*> extensions = ParseExtensionString(&extensionNames[0]);
+            LogVulkanExtensions("Vulkan Instance Extensions, requested by runtime", extensions);
 
             // Merge the runtime's request with the applications requests
             for (uint32_t i = 0; i < createInfo->vulkanCreateInfo->enabledExtensionCount; ++i) {
                 extensions.push_back(createInfo->vulkanCreateInfo->ppEnabledExtensionNames[i]);
             }
+            LogVulkanExtensions("Vulkan Instance Extensions, requested by application", extensions,
+                                (uint32_t)extensions.size() - createInfo->vulkanCreateInfo->enabledExtensionCount);
 
             VkInstanceCreateInfo instInfo{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
             memcpy(&instInfo, createInfo->vulkanCreateInfo, sizeof(instInfo));
@@ -1907,11 +1920,14 @@ struct VulkanGraphicsPluginLegacy : public VulkanGraphicsPlugin {
             if (deviceExtensionNamesSize > 0) {
                 extensions = ParseExtensionString(&deviceExtensionNames[0]);
             }
+            LogVulkanExtensions("Vulkan Device Extensions, requested by runtime", extensions);
 
             // Merge the runtime's request with the applications requests
             for (uint32_t i = 0; i < createInfo->vulkanCreateInfo->enabledExtensionCount; ++i) {
                 extensions.push_back(createInfo->vulkanCreateInfo->ppEnabledExtensionNames[i]);
             }
+            LogVulkanExtensions("Vulkan Device Extensions, requested by application", extensions,
+                                (uint32_t)extensions.size() - createInfo->vulkanCreateInfo->enabledExtensionCount);
 
             VkPhysicalDeviceFeatures features{};
             memcpy(&features, createInfo->vulkanCreateInfo->pEnabledFeatures, sizeof(features));

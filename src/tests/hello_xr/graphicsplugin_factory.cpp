@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2024, The Khronos Group Inc.
+// Copyright (c) 2017-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -32,6 +32,10 @@ std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_D3D11(const std::shared_pt
 #endif
 #ifdef XR_USE_GRAPHICS_API_D3D12
 std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_D3D12(const std::shared_ptr<Options>& options,
+                                                            std::shared_ptr<IPlatformPlugin> platformPlugin);
+#endif
+#ifdef XR_USE_GRAPHICS_API_METAL
+std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_Metal(const std::shared_ptr<Options>& options,
                                                             std::shared_ptr<IPlatformPlugin> platformPlugin);
 #endif
 
@@ -72,6 +76,12 @@ std::map<std::string, GraphicsPluginFactory, IgnoreCaseStringLess> graphicsPlugi
     {"D3D12",
      [](const std::shared_ptr<Options>& options, std::shared_ptr<IPlatformPlugin> platformPlugin) {
          return CreateGraphicsPlugin_D3D12(options, std::move(platformPlugin));
+     }},
+#endif
+#ifdef XR_USE_GRAPHICS_API_METAL
+    {"Metal",
+     [](const std::shared_ptr<Options>& options, std::shared_ptr<IPlatformPlugin> platformPlugin) {
+         return CreateGraphicsPlugin_Metal(options, std::move(platformPlugin));
      }},
 #endif
 };

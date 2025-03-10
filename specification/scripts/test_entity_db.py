@@ -1,5 +1,6 @@
-#!/usr/bin/python3 -i
+#!/usr/bin/env python3 -i
 #
+# Copyright 2018-2025 The Khronos Group Inc.
 # Copyright (c) 2018-2019 Collabora, Ltd.
 #
 # SPDX-License-Identifier: Apache-2.0

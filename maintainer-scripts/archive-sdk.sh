@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2019-2024, The Khronos Group Inc.
+# Copyright (c) 2019-2025 The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -46,7 +46,6 @@ makeSubset "$TARNAME" $(getSDKFilenames)
     cd github
 
     # Add the shared public .mailmap used in all GitHub projects derived from the internal openxr repo
-    add_to_tar "$TARNAME" .mailmap
     if [ -f .mailmap ]; then
         # It's in the github folder.
         add_to_tar "$TARNAME" .mailmap
@@ -71,6 +70,7 @@ makeSubset "$TARNAME" $(getSDKFilenames)
 
 # Read the list of headers we should generate, and generate them.
 while read -r header; do
+    header=$(echo "$header" | sed 's/[[:space:]]*$//')
     generate_spec include/openxr "$header" "$TARNAME"
 done < include/generated_header_list.txt
 
@@ -83,9 +83,9 @@ generate_src src/loader xr_generated_loader.cpp  "$TARNAME"
 generate_src src/loader xr_generated_loader.hpp  "$TARNAME"
 
 # If the loader doc has been generated, include it too.
-if [ -f specification/generated/out/1.0/loader.html ]; then
+if [ -f specification/generated/out/1.1/loader.html ]; then
     mkdir -p doc/loader
-    cp specification/generated/out/1.0/loader.html doc/loader/OpenXR_loader_design.html
+    cp specification/generated/out/1.1/loader.html doc/loader/OpenXR_loader_design.html
     add_to_tar "$TARNAME" doc/loader/OpenXR_loader_design.html
 fi
 

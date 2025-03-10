@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 #
+# Copyright 2018-2025 The Khronos Group Inc.
 # Copyright (c) 2018 Collabora, Ltd.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -49,9 +50,9 @@ class Language(Enum):
 
     @classmethod
     def from_string(cls, s):
-        s = s.upper()
+        s = s.casefold()
         for val in Language:
-            if s == str(val).upper():
+            if s == val.value.casefold():
                 return val
         return Language.UNKNOWN
 
@@ -91,7 +92,7 @@ class CodeExtractor(LinewiseFileProcessor):
 
     def print_message(self, s):
         if not self.quiet:
-            print('{}:{}: {}'.format(self.filename, self.line_number, s))
+            print(f'{self.filename}:{self.line_number}: {s}')
 
     def process_start_of_code_block(self):
         prev_line = self.get_preceding_line()
@@ -104,13 +105,16 @@ class CodeExtractor(LinewiseFileProcessor):
             # Not going to handle this.
             return
 
-        tags = set(code_block_tag.group('tags').upper().split(','))
+        tags = set(t.strip() for t in code_block_tag.group('tags').casefold().split(','))
 
-        self.language = Language.UNKNOWN
-        for lang in Language:
-            if str(lang).upper() in tags:
-                self.language = lang
+        lang = Language.UNKNOWN
+        for tag in tags:
+            lang = Language.from_string(tag)
+            if lang != Language.UNKNOWN:
                 break
+
+        self.language = lang
+
         if self.language == Language.UNKNOWN:
             self.print_message('Not extracting code snippet introduced with {} (tags = {})'.format(
                 code_block_tag.group(), tags))
@@ -120,7 +124,7 @@ class CodeExtractor(LinewiseFileProcessor):
             self.print_message('Not extracting code snippet identified as {}'.format(
                 self.language))
             return
-        if 'SUPPRESS-BUILD' in tags:
+        if 'suppress-build' in tags:
             self.print_message(
                 'Suppressing extraction of code snippet because we saw "suppress-build"')
             return
@@ -137,7 +141,7 @@ class CodeExtractor(LinewiseFileProcessor):
 
         if len(code_lines) < self.MIN_LINES:
             self.print_message(
-                'Not extracting code snippet - only {} lines.'.format(len(code_lines)))
+                f'Not extracting code snippet - only {len(code_lines)} lines.')
             return
 
         out_filename = self.make_numbered_filename(self.language)
@@ -152,7 +156,7 @@ class CodeExtractor(LinewiseFileProcessor):
         with out_filename.open('w', encoding='utf-8') as f:
             f.write('#include "common_include.h"\n')
             if include_file.exists():
-                f.write('#include "{}"\n\n'.format(include_file.name))
+                f.write(f'#include "{include_file.name}"\n\n')
                 self.deps.append((out_filename, include_file))
             f.write('void func() {\n')
             f.write(''.join(code_lines))
@@ -161,8 +165,7 @@ class CodeExtractor(LinewiseFileProcessor):
     def process_code_block_line(self):
         if self.code_lines is not None:
             if self.output_line_numbers:
-                self.code_lines.append('# {} "{}"\n'.format(
-                    self.line_number, self.filename))
+                self.code_lines.append(f'# {self.line_number} "{self.filename}\"\n')
             self.code_lines.append(self.line)
 
     def process_line(self, line_num, line):
@@ -219,7 +222,7 @@ class CodeExtractorGroup(object):
                                               for fn in self.all_generated if fn.suffix == '.c')
             generated_cpp_string = ' \\\n'.join(str(fn)
                                                 for fn in self.all_generated if fn.suffix == '.cpp')
-            deps_string = '\n'.join('{}: {} $(CODEDIR)/common_include.h'.format(fn.with_suffix('.o'), dep)
+            deps_string = '\n'.join(f"{fn.with_suffix('.o')}: {dep} $(CODEDIR)/common_include.h"
                                     for fn, dep in self.deps)
             extra_arg = ''
             if self.output_line_numbers:
@@ -263,7 +266,7 @@ gen: {script}
 .PHONY: gen
 
 {deps}
-""".format(out=(ROOT / 'specification' / 'generated' / 'out' / '1.0').relative_to(Path('.').resolve()),
+""".format(out=(ROOT / 'specification' / 'generated' / 'out' / '1.1').relative_to(Path('.').resolve()),
                 codedir=CODEDIR.relative_to(Path('.').resolve()),
                 c=generated_c_string,
                 cpp=generated_cpp_string,
@@ -287,8 +290,7 @@ gen: {script}
                         compiler = '[cc]  '
                     origin_str = '{} {} extracted from {}:{}'.format(compiler, generated.name.ljust(width),
                                                                      origin_file, origin_line)
-                    f.write('{obj}: ORIGIN := {originstr}\n'.format(
-                        obj=generated.with_suffix('.o'), originstr=origin_str))
+                    f.write(f"{generated.with_suffix('.o')}: ORIGIN := {origin_str}\n")
 
 
 if __name__ == "__main__":

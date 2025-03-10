@@ -1,6 +1,6 @@
-#!/usr/bin/python3 -i
+#!/usr/bin/env python3 -i
 #
-# Copyright (c) 2013-2024, The Khronos Group Inc.
+# Copyright (c) 2013-2025 The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -25,6 +25,7 @@ MAIN_RE = re.compile(
             ([A-Z]([a-z]+([0-9](?!D[A-Z]{1}))*)+)|  # Capital letter followed by at least one lowercase letter, possibly ending in some digits as long as the digits aren't followed by a "D" then another word
             ([A-Z][A-Z0-9]+(?![a-z]))       # Or, all-caps letter and digit mix starting with a letter, excluding the last capital before some lowercase
         )''', re.VERBOSE)
+
 
 class OpenXRConventions(ConventionsBase):
     """The specifics of how OpenXR writes a spec."""
@@ -144,7 +145,21 @@ class OpenXRConventions(ConventionsBase):
         """Return whether refpage include should be written to extension appendices"""
         return True
 
-    def writeFeature(self, featureName, featureExtraProtect, filename):
+    @property
+    def allows_x_number_suffix(self):
+        """Whether vendor tags can be suffixed with X and a number to mark experimental extensions."""
+        return True
+
+    def formatVersion(self, name, apivariant, major, minor):
+        """Mark up an API version name as a link in the spec."""
+        version = f'{major}.{minor}'
+        return f'<<versions-{version}, OpenXR {version}>>'
+
+    def formatExtension(self, name):
+        """Mark up an extension name as a link in the spec."""
+        return f'apiext:{name}'
+
+    def writeFeature(self, featureName, featureExtraProtect, genOpts):
         """Returns True if OutputGenerator.endFeature should write this feature.
 
         Used in COutputGenerator.
@@ -152,23 +167,24 @@ class OpenXRConventions(ConventionsBase):
         In OpenXR, a feature is written to the openxr_platform header
         if and only if it has a defined "protect" attribute.
         """
-        if filename == 'openxr_reflection.h':
+        if genOpts.filename == 'openxr_reflection.h':
             # Write all features to the reflection header
             return True
         is_loader = featureName == 'XR_LOADER_VERSION_1_0'
         is_protected = featureExtraProtect is not None
-        is_platform_header = (filename == 'openxr_platform.h')
+        is_platform_header = (genOpts.filename == 'openxr_platform.h')
 
         # Only write loader spec to loader file.
         if is_loader:
-            return filename == 'openxr_loader_negotiation.h'
+            return genOpts.filename == 'openxr_loader_negotiation.h'
 
-        if filename == 'openxr_loader_negotiation.h':
+        if genOpts.filename == 'openxr_loader_negotiation.h':
             return False
 
         # non-protected goes in non-platform header,
         # protected goes in platform header.
-        return is_protected == is_platform_header
+        # standalone extensions get both protected and unprotected features.
+        return ( is_protected == is_platform_header ) or genOpts.standaloneExtension
 
     def requires_error_validation(self, return_type):
         """Returns True if the return_type element is an API result code
@@ -204,7 +220,7 @@ class OpenXRConventions(ConventionsBase):
 
     def make_voidpointer_alias(self, tail):
         """Reformat a void * declaration to include the API alias macro"""
-        return '* XR_MAY_ALIAS{}'.format(tail[1:])
+        return f'* XR_MAY_ALIAS{tail[1:]}'
 
     def specURL(self, spectype='api'):
         """Return public registry URL which ref pages should link to for the
@@ -213,7 +229,7 @@ class OpenXRConventions(ConventionsBase):
            instead. N.b. this may need to change on a per-refpage basis if
            there are multiple documents involved.
         """
-        return 'https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html'
+        return 'https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html'
 
     @property
     def xml_api_name(self):
@@ -243,7 +259,7 @@ class OpenXRConventions(ConventionsBase):
     @property
     def unified_flag_refpages(self):
         """Return True if Flags/FlagBits refpages are unified, False if
-           they're separate.
+           they are separate.
         """
         return False
 
@@ -289,20 +305,15 @@ class OpenXRConventions(ConventionsBase):
 
         (vendor, bare_name) = self.extension_name_split(name)
         vendor = vendor.lower()
-        bare_name = bare_name.lower()
 
-        return '{vendor}/{vendor}_{bare_name}{suffix}'.format(
-                vendor=vendor,
-                bare_name=bare_name,
-                suffix=self.file_suffix)
+        return f'{vendor}/{vendor}_{bare_name.lower()}{self.file_suffix}'
 
     def extension_include_string(self, name):
         """Return format string for include:: line for an extension appendix
            file.
             - name - extension name"""
 
-        return 'include::{{appendices}}/{}[]'.format(
-                self.extension_file_path(name))
+        return f'include::{{appendices}}/{self.extension_file_path(name)}[]'
 
     @property
     def provisional_extension_warning(self):
@@ -331,3 +342,15 @@ class OpenXRConventions(ConventionsBase):
         """Return True if generated #endif should have a comment matching
            the protection symbol used in the opening #ifdef/#ifndef."""
         return True
+
+    def is_api_version_name(self, name):
+        if name.startswith("XR_LOADER_VERSION_"):
+            return True
+        return super().is_api_version_name(name)
+
+    @property
+    def docgen_source_options(self):
+        """Return block options to be used in docgenerator [source] blocks,
+           which are appended to the 'source' block type.
+           Can be empty."""
+        return ''
